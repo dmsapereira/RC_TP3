@@ -1,3 +1,5 @@
+import java.util.HashMap;
+import java.util.Map;
 
 /*
  * My Distance-Vector Routing Implementation
@@ -73,10 +75,7 @@ public class DV implements RoutingAlgorithm
  */
 class DVRoutingTableEntry implements RoutingTableEntry
 {	
-	int destination;
-	int iface;
-	int metric;
-	int time;
+	int destination, iface, metric, time;
 
 	public DVRoutingTableEntry(int d, int i, int m, int t)
 	{
