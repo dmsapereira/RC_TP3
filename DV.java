@@ -11,10 +11,12 @@ public class DV implements RoutingAlgorithm
 	
 	Router thisRouter = null;  // the router were this algorithm is running
 
+	Map<Integer, DVRoutingTableEntry> routingTable;
 	// declare your routing table here using DVRoutingTableEntry (see end of this file)
 
 	public DV()
-	{		
+	{
+		routingTable = new HashMap<>();
 	}
 
 	public void setRouterObject(Router obj)
@@ -70,31 +72,40 @@ public class DV implements RoutingAlgorithm
  * My Routing Table Entry
  */
 class DVRoutingTableEntry implements RoutingTableEntry
-{
+{	
+	int destination;
+	int iface;
+	int metric;
+	int time;
 
 	public DVRoutingTableEntry(int d, int i, int m, int t)
 	{
+		this.destination = d;
+		this.iface = i;
+		this.metric = m;
+		this.time = t;
 	}
 
-	public int getDestination() { return 0; }
+	public int getDestination() { return this.destination; }
 
-	public void setDestination(int d) {  }
+	public void setDestination(int d) { this.destination = d; }
 
-	public int getInterface() { return 0; }
+	public int getInterface() { return this.iface; }
 
-	public void setInterface(int i) {  }
+	public void setInterface(int i) { this.iface = i; }
 
-	public int getMetric() { return 0; }
+	public int getMetric() { return this.metric; }
 
-	public void setMetric(int m) {  } 
+	public void setMetric(int m) { this.metric = m; } 
 
-	public int getTime() { return 0; }
+	public int getTime() { return this.time;}
 
-	public void setTime(int t) {  }
+	public void setTime(int t) {  this.time = t;}
 
 	public String toString() 
-	{
-		return "";
+	{	
+		String table_format = "Destination: %d\n Interface: %d\n Metric: %d\n Time: %d\n";
+		return String.format(table_format, this.destination, this.iface, this.metric, this.time);
 	}
 }
 
