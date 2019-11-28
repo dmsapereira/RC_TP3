@@ -15,12 +15,14 @@ public class DV implements RoutingAlgorithm {
 
 	Map<Integer, DVRoutingTableEntry> routingTable;
 
-	long updateInterval;
+	int updateInterval;
+
+	
 	// declare your routing table here using DVRoutingTableEntry (see end of this
 	// file)
 
 	public DV() {
-		this.updateInterval = 200;
+		this.updateInterval = DEFAULT_UPDATE_INTERVAL;
 	}
 
 	public void setRouterObject(Router obj) {
@@ -39,6 +41,13 @@ public class DV implements RoutingAlgorithm {
 
 	public void initalise() {
 		this.routingTable.put(LOCAL, new DVRoutingTableEntry(LOCAL, LOCAL, 0));
+
+		for(Link link : this.thisRouter.getLinks()){
+			int destination = link.getRouter(1);
+			int inter = link.getInterface(0);
+			int weight = link.getInterfaceWeight(0);
+			this.routingTable.put(destination, new DVRoutingTableEntry(destination, inter, weight));
+		}
 	}
 
 	public int getNextHop(int destination) {

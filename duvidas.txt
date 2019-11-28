@@ -1,0 +1,12 @@
+usar RIB?
+como usar RoutingPackets
+quando usar DATA packets
+:wq
+
+
+
+
+
+
+
+
