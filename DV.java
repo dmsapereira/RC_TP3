@@ -16,7 +16,8 @@ public class DV implements RoutingAlgorithm {
 	Map<Integer, DVRoutingTableEntry> routingTable;
 
 	int updateInterval;
-
+	boolean pReverse;
+	boolean expire;
 	
 	// declare your routing table here using DVRoutingTableEntry (see end of this
 	// file)
@@ -28,45 +29,46 @@ public class DV implements RoutingAlgorithm {
 	public void setRouterObject(Router obj) {
 		thisRouter = obj;
 		this.routingTable = new HashMap<>();
+		this.pReverse = false;
+		this.expire = false;
 	}
 
 	public void setUpdateInterval(int u) {
+		updateInterval = u;
 	}
 
 	public void setAllowPReverse(boolean flag) {
+		this.pReverse = flag;
 	}
 
 	public void setAllowExpire(boolean flag) {
+		this.expire = flag;
 	}
 
 	public void initalise() {
-		this.routingTable.put(LOCAL, new DVRoutingTableEntry(LOCAL, LOCAL, 0));
-
 		for(Link link : this.thisRouter.getLinks()){
 			int destination = link.getRouter(1);
 			int inter = link.getInterface(0);
 			int weight = link.getInterfaceWeight(0);
-			this.routingTable.put(destination, new DVRoutingTableEntry(destination, inter, weight));
+			this.routingTable.put(destination, new DVRoutingTableEntry(destination, inter, weight,this.thisRouter.getCurrentTime()));
 		}
 	}
 
 	public int getNextHop(int destination) {
-		if (destination == this.thisRouter.getId())
-			return LOCAL;
 
 		DVRoutingTableEntry next = this.routingTable.get(destination);
 
 		if (next == null)
 			return UNKNOWN;
-
+	
 		return next.getInterface();
 	}
 
 	public void tidyTable() {
+
 	}
 
 	public Packet generateRoutingPacket(int iface) {
-		return null;
 	}
 
 	public void processRoutingPacket(Packet p, int iface) {
@@ -85,11 +87,11 @@ public class DV implements RoutingAlgorithm {
 class DVRoutingTableEntry implements RoutingTableEntry {
 	int destination, iface, metric, time;
 
-	public DVRoutingTableEntry(int d, int i, int m) {
+	public DVRoutingTableEntry(int d, int i, int m, int t) {
 		this.destination = d;
 		this.iface = i;
 		this.metric = m;
-		this.time = (int) System.currentTimeMillis();
+		this.time = t;
 	}
 
 	public int getDestination() {
