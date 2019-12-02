@@ -68,7 +68,21 @@ public class DV implements RoutingAlgorithm {
 
 	}
 
+	private Payload buildTableInformation(){
+		String entryFormat = "%s %s";
+		Payload load = new Payload();
+		for(DVRoutingTableEntry entry : this.routingTable.values())
+			load.addEntry(String.format(entryFormat, 
+										entry.getDestination(), 
+										entry.getMetric()));
+
+		return load;
+	}
+
 	public Packet generateRoutingPacket(int iface) {
+		Packet packet = new RoutingPacket(this.thisRouter.getId(), this.thisRouter.getLinks()[iface].getRouter(1));
+		packet.setPayload(buildTableInformation());
+		packet.
 	}
 
 	public void processRoutingPacket(Packet p, int iface) {
