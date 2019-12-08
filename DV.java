@@ -1,4 +1,5 @@
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /*
@@ -24,17 +25,17 @@ public class DV implements RoutingAlgorithm {
 
 	public DV() {
 		this.updateInterval = DEFAULT_UPDATE_INTERVAL;
-	}
-
-	public void setRouterObject(Router obj) {
-		thisRouter = obj;
-		this.routingTable = new HashMap<>();
 		this.pReverse = false;
 		this.expire = false;
 	}
 
+	public void setRouterObject(Router obj) {
+		this.thisRouter = obj;
+		this.routingTable = new HashMap<>();
+	}
+
 	public void setUpdateInterval(int u) {
-		updateInterval = u;
+		this.updateInterval = u;
 	}
 
 	public void setAllowPReverse(boolean flag) {
@@ -46,12 +47,11 @@ public class DV implements RoutingAlgorithm {
 	}
 
 	public void initalise() {
-		for(Link link : this.thisRouter.getLinks()){
-			int destination = link.getRouter(1);
-			int inter = link.getInterface(0);
-			int weight = link.getInterfaceWeight(0);
-			this.routingTable.put(destination, new DVRoutingTableEntry(destination, inter, weight,this.thisRouter.getCurrentTime()));
-		}
+		this.routingTable.put(
+			this.thisRouter.getId(), new DVRoutingTableEntry(this.thisRouter.getId(), 
+															LOCAL, 
+															0, 
+															this.thisRouter.getCurrentTime()));
 	}
 
 	public int getNextHop(int destination) {
@@ -64,28 +64,72 @@ public class DV implements RoutingAlgorithm {
 		return next.getInterface();
 	}
 
-	public void tidyTable() {
-
+	private void linkDown(int iface){
+		for(DVRoutingTableEntry entry : this.routingTable.values()){
+			if(entry.getInterface() == iface)
+				entry.setMetric(INFINITY);
+		}
 	}
+
+	public void tidyTable() {
+	for(Link zelda : this.thisRouter.getLinks()){
+			int thisSide = zelda.getRouter(0) == this.thisRouter.getId() ? 0 : 1;
+
+			if(!zelda.isUp())
+				this.linkDown(zelda.getInterface(thisSide));
+	}
+}
 
 	private Payload buildTableInformation(){
 		String entryFormat = "%s %s";
 		Payload load = new Payload();
 		for(DVRoutingTableEntry entry : this.routingTable.values())
-			load.addEntry(String.format(entryFormat, 
-										entry.getDestination(), 
-										entry.getMetric()));
-
+				load.addEntry(String.format(entryFormat, 
+											entry.getDestination(), 
+											entry.getMetric()));
 		return load;
 	}
 
 	public Packet generateRoutingPacket(int iface) {
-		Packet packet = new RoutingPacket(this.thisRouter.getId(), this.thisRouter.getLinks()[iface].getRouter(1));
+		Packet packet = new RoutingPacket(this.thisRouter.getId(), BROADCAST);
 		packet.setPayload(buildTableInformation());
-		packet.
+		return packet; 
 	}
 
 	public void processRoutingPacket(Packet p, int iface) {
+		DVRoutingTableEntry entry;
+
+		Iterator<Object> iterator = p.getPayload().getData().iterator();
+
+		if(!this.routingTable.containsKey(p.getSource())){
+			this.routingTable.put(p.getSource(), 
+				new DVRoutingTableEntry(p.getSource(), 
+										iface, 
+										this.thisRouter.getLinks()[iface].getInterfaceWeight(this.thisRouter.getId()), 
+										this.thisRouter.getCurrentTime()));
+		}
+
+		while(iterator.hasNext()){
+			String data = (String)iterator.next();
+			int destination = Integer.parseInt(data.split(" ")[0]);
+			int metric = Integer.parseInt(data.split(" ")[1]);
+			int cost = this.thisRouter.getLinks()[iface].isUp() ? 
+						this.thisRouter.getLinks()[iface].getInterfaceWeight(this.thisRouter.getId()) :
+						this.routingTable.get(p.getSource()).getMetric();
+
+
+			if((entry = this.routingTable.get(destination)) == null){
+				this.routingTable.put(destination, 
+					new DVRoutingTableEntry(destination, 
+											iface, 
+											metric + cost,
+											this.thisRouter.getCurrentTime()));
+			}else if(entry.getMetric() > metric + cost){
+				entry.setInterface(iface);
+				entry.setMetric(metric + cost);
+				entry.setTime(this.thisRouter.getCurrentTime());
+			}
+		}
 	}
 
 	public void showRoutes() {
@@ -141,7 +185,7 @@ class DVRoutingTableEntry implements RoutingTableEntry {
 	}
 
 	public String toString() {
-		String table_format = "Destination: %d -- Interface: %d -- Metric: %d -- Time: %d";
-		return String.format(table_format, this.destination, this.iface, this.metric, this.time);
+		String table_format = "d %d i %d m %d";
+		return String.format(table_format, this.destination, this.iface, this.metric);
 	}
 }
