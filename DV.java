@@ -66,8 +66,10 @@ public class DV implements RoutingAlgorithm {
 
 	private void linkDown(int iface){
 		for(DVRoutingTableEntry entry : this.routingTable.values()){
-			if(entry.getInterface() == iface)
+			if(entry.getInterface() == iface){
 				entry.setMetric(INFINITY);
+				entry.setTime(this.thisRouter.getCurrentTime());
+			}
 		}
 	}
 
@@ -80,19 +82,21 @@ public class DV implements RoutingAlgorithm {
 	}
 }
 
-	private Payload buildTableInformation(){
-		String entryFormat = "%s %s";
+	private Payload buildTableInformation(int iface){
+		String entryFormat = "%s %s %s";
 		Payload load = new Payload();
-		for(DVRoutingTableEntry entry : this.routingTable.values())
+		for(DVRoutingTableEntry entry : this.routingTable.values()){
 				load.addEntry(String.format(entryFormat, 
-											entry.getDestination(), 
-											entry.getMetric()));
+											entry.getDestination(),
+											entry.getInterface(),
+											entry.getInterface() == iface ? INFINITY : entry.getMetric()));
+		}
 		return load;
 	}
 
 	public Packet generateRoutingPacket(int iface) {
 		Packet packet = new RoutingPacket(this.thisRouter.getId(), BROADCAST);
-		packet.setPayload(buildTableInformation());
+		packet.setPayload(buildTableInformation(iface));
 		return packet; 
 	}
 
@@ -100,6 +104,8 @@ public class DV implements RoutingAlgorithm {
 		DVRoutingTableEntry entry;
 
 		Iterator<Object> iterator = p.getPayload().getData().iterator();
+
+		int otherSide = this.thisRouter.getLinks()[iface].getRouter(0) == this.thisRouter.getId() ? 1 : 0;
 
 		if(!this.routingTable.containsKey(p.getSource())){
 			this.routingTable.put(p.getSource(), 
@@ -112,7 +118,8 @@ public class DV implements RoutingAlgorithm {
 		while(iterator.hasNext()){
 			String data = (String)iterator.next();
 			int destination = Integer.parseInt(data.split(" ")[0]);
-			int metric = Integer.parseInt(data.split(" ")[1]);
+			int otherIface = Integer.parseInt(data.split(" ")[1]);
+			int metric = Integer.parseInt(data.split(" ")[2]);
 			int cost = this.thisRouter.getLinks()[iface].isUp() ? 
 						this.thisRouter.getLinks()[iface].getInterfaceWeight(this.thisRouter.getId()) :
 						this.routingTable.get(p.getSource()).getMetric();
@@ -124,7 +131,12 @@ public class DV implements RoutingAlgorithm {
 											iface, 
 											metric + cost,
 											this.thisRouter.getCurrentTime()));
-			}else if(entry.getMetric() > metric + cost){
+			}else if(metric == INFINITY && entry.getInterface() == iface){
+				entry.setMetric(metric);
+				entry.setTime(this.thisRouter.getCurrentTime());
+			}else if(entry.getMetric() > metric + cost && 
+					 !(entry.getMetric() == INFINITY &&
+					   this.thisRouter.getLinks()[iface].getInterface(otherSide) == otherIface)){
 				entry.setInterface(iface);
 				entry.setMetric(metric + cost);
 				entry.setTime(this.thisRouter.getCurrentTime());
