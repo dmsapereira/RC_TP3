@@ -1,6 +1,9 @@
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /*
  * My Distance-Vector Routing Implementation
@@ -11,6 +14,7 @@ public class DV implements RoutingAlgorithm {
 	static final int BROADCAST = 255; // broadcast address
 	static final int INFINITY = 60; // "infinity" metric
 	static final int DEFAULT_UPDATE_INTERVAL = 200;
+	static final int TIMEOUT = 3;
 
 	Router thisRouter = null; // the router were this algorithm is running
 
@@ -66,7 +70,7 @@ public class DV implements RoutingAlgorithm {
 
 	private void linkDown(int iface){
 		for(DVRoutingTableEntry entry : this.routingTable.values()){
-			if(entry.getInterface() == iface){
+			if(entry.getInterface() == iface && entry.getMetric() != INFINITY){
 				entry.setMetric(INFINITY);
 				entry.setTime(this.thisRouter.getCurrentTime());
 			}
@@ -80,17 +84,40 @@ public class DV implements RoutingAlgorithm {
 			if(!zelda.isUp())
 				this.linkDown(zelda.getInterface(thisSide));
 	}
+
+	if(this.expire){
+		List<Integer> keys = new LinkedList<>();
+
+		for(int key : this.routingTable.keySet()){
+			keys.add(key);
+		}
+
+		for(int key : keys){
+			DVRoutingTableEntry entry = this.routingTable.get(key);
+			if(entry.getMetric() == INFINITY &&
+				this.thisRouter.getCurrentTime() - entry.getTime() > TIMEOUT * this.updateInterval)
+				this.routingTable.remove(key);
+		}
+	}
 }
 
 	private Payload buildTableInformation(int iface){
-		String entryFormat = "%s %s %s";
+		String entryFormat = "%s %s";
 		Payload load = new Payload();
-		for(DVRoutingTableEntry entry : this.routingTable.values()){
+		if(this.pReverse){
+			for(DVRoutingTableEntry entry : this.routingTable.values()){
+					load.addEntry(String.format(entryFormat, 
+												entry.getDestination(),
+												entry.getInterface() == iface ? INFINITY : entry.getMetric()));
+			}
+		}else{
+			for(DVRoutingTableEntry entry : this.routingTable.values()){
 				load.addEntry(String.format(entryFormat, 
 											entry.getDestination(),
-											entry.getInterface(),
-											entry.getInterface() == iface ? INFINITY : entry.getMetric()));
+											entry.getMetric()));
+			}
 		}
+
 		return load;
 	}
 
@@ -105,8 +132,6 @@ public class DV implements RoutingAlgorithm {
 
 		Iterator<Object> iterator = p.getPayload().getData().iterator();
 
-		int otherSide = this.thisRouter.getLinks()[iface].getRouter(0) == this.thisRouter.getId() ? 1 : 0;
-
 		if(!this.routingTable.containsKey(p.getSource())){
 			this.routingTable.put(p.getSource(), 
 				new DVRoutingTableEntry(p.getSource(), 
@@ -118,8 +143,7 @@ public class DV implements RoutingAlgorithm {
 		while(iterator.hasNext()){
 			String data = (String)iterator.next();
 			int destination = Integer.parseInt(data.split(" ")[0]);
-			int otherIface = Integer.parseInt(data.split(" ")[1]);
-			int metric = Integer.parseInt(data.split(" ")[2]);
+			int metric = Integer.parseInt(data.split(" ")[1]);
 			int cost = this.thisRouter.getLinks()[iface].isUp() ? 
 						this.thisRouter.getLinks()[iface].getInterfaceWeight(this.thisRouter.getId()) :
 						this.routingTable.get(p.getSource()).getMetric();
@@ -131,12 +155,10 @@ public class DV implements RoutingAlgorithm {
 											iface, 
 											metric + cost,
 											this.thisRouter.getCurrentTime()));
-			}else if(metric == INFINITY && entry.getInterface() == iface){
-				entry.setMetric(metric);
+			}else if(iface == entry.getInterface()){
+				entry.setMetric(metric == INFINITY ? metric :  + metric + cost);
 				entry.setTime(this.thisRouter.getCurrentTime());
-			}else if(entry.getMetric() > metric + cost && 
-					 !(entry.getMetric() == INFINITY &&
-					   this.thisRouter.getLinks()[iface].getInterface(otherSide) == otherIface)){
+			}else if(metric + cost < entry.getMetric()){
 				entry.setInterface(iface);
 				entry.setMetric(metric + cost);
 				entry.setTime(this.thisRouter.getCurrentTime());
