@@ -3,7 +3,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /*
  * My Distance-Vector Routing Implementation
@@ -144,20 +143,21 @@ public class DV implements RoutingAlgorithm {
 			String data = (String)iterator.next();
 			int destination = Integer.parseInt(data.split(" ")[0]);
 			int metric = Integer.parseInt(data.split(" ")[1]);
-			int cost = this.thisRouter.getLinks()[iface].isUp() ? 
-						this.thisRouter.getLinks()[iface].getInterfaceWeight(this.thisRouter.getId()) :
-						this.routingTable.get(p.getSource()).getMetric();
-
+			int cost = this.thisRouter.getLinks()[iface].getInterfaceWeight(this.thisRouter.getId());
 
 			if((entry = this.routingTable.get(destination)) == null){
-				this.routingTable.put(destination, 
-					new DVRoutingTableEntry(destination, 
-											iface, 
-											metric + cost,
-											this.thisRouter.getCurrentTime()));
+				if(metric != INFINITY){
+					this.routingTable.put(destination, 
+						new DVRoutingTableEntry(destination, 
+												iface, 
+												metric + cost,
+												this.thisRouter.getCurrentTime()));
+				}
 			}else if(iface == entry.getInterface()){
-				entry.setMetric(metric == INFINITY ? metric :  + metric + cost);
-				entry.setTime(this.thisRouter.getCurrentTime());
+				int metricPre = entry.getMetric();
+				entry.setMetric(metric + cost > INFINITY ? INFINITY :  metric + cost);
+				if(metricPre != metric)
+					entry.setTime(this.thisRouter.getCurrentTime());
 			}else if(metric + cost < entry.getMetric()){
 				entry.setInterface(iface);
 				entry.setMetric(metric + cost);
